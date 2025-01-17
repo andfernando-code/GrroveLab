@@ -1,74 +1,59 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React from "react";
+import {
+  Image,
+  Platform,
+  View,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
+import { Text } from "react-native";
+import styles from "../styles.js";
+import { Link } from "expo-router";
+import { StyleSheet } from "react-native";
+import { StatusBar } from "expo-status-bar";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const CARD_DATA = [
+  {
+    id: "1",
+    title: "First Card",
+    description: "This is the first card description",
+    image: "https://picsum.photos/300/200",
+  },
+  {
+    id: "2",
+    title: "Second Card",
+    description: "This is the second card description",
+    image: "https://picsum.photos/300/201",
+  },
+];
 
 export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <StatusBar style="auto" />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {CARD_DATA.map((card) => (
+          <Link
+            href={{
+              pathname: "/(tabs)/[id]",
+              params: { ...card }, // card.id is already included in card
+            }}
+            asChild
+          >
+            <TouchableOpacity style={styles.card}>
+              <Image
+                source={{ uri: card.image }}
+                style={styles.cardImage}
+                resizeMode="cover"
+              />
+              <View style={styles.cardContent}>
+                <Text style={styles.cardTitle}>{card.title}</Text>
+                <Text style={styles.cardDescription}>{card.description}</Text>
+              </View>
+            </TouchableOpacity>
+          </Link>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
