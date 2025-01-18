@@ -3,13 +3,13 @@ import { StyleSheet, Platform } from 'react-native';
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
   },
   scrollContent: {
     padding: 16,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#bf9002',
     borderRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
@@ -36,10 +36,11 @@ export default StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
+    color:"white",
   },
   cardDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#000',
   },
   // Detail screen styles
   image: {

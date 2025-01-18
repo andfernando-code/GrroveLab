@@ -15,15 +15,21 @@ import { StatusBar } from "expo-status-bar";
 const CARD_DATA = [
   {
     id: "1",
-    title: "First Card",
-    description: "This is the first card description",
-    image: "https://picsum.photos/300/200",
+    title: "Calendar",
+    description: "You can see sheduled practices and events in here",
+    image: "https://www.seekpng.com/png/detail/265-2652798_events-3d-icon-icon-calendar.png",
   },
   {
     id: "2",
-    title: "Second Card",
-    description: "This is the second card description",
-    image: "https://picsum.photos/300/201",
+    title: "Setlist",
+    description: "you can see every event's setlists in here",
+    image: "https://audioboom.com/i/40911021/1400x1400/c",
+  },
+  {
+    id: "3",
+    title: "Chat",
+    description: "Connect with group members",
+    image: "https://www.shutterstock.com/image-vector/chat-icon-symbol-vector-illustration-600nw-1589556166.jpg",
   },
 ];
 
