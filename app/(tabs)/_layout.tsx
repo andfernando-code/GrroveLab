@@ -1,32 +1,39 @@
-import { Tabs } from "expo-router";
 import React from "react";
-import { Platform } from "react-native";
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useColorScheme";
-import { FontAwesome } from '@expo/vector-icons';
-import iconSet from "@expo/vector-icons/build/Fontisto";
+import { Tabs } from "expo-router";
+import { FontAwesome } from "@expo/vector-icons"; // Import FontAwesome
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+const TabRoot = () => {
   return (
     <Tabs>
       <Tabs.Screen
-        name="index"
+        name="contact"
         options={{
-          title: "GrooveLab",
-        }}
-      />
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: 'Cards',
-          tabBarIcon: ({ color }) => (
-            <FontAwesome name="home" size={24} color={color} />
+          title: "Contact",
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="envelope" color={color} size={size} />
           ),
         }}
       />
-      {/* Add other tab screens as needed */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="home" color={color} size={30} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="cogs" color={color} size={size} />
+          ),
+        }}
+      />
     </Tabs>
   );
-}
+};
+
+export default TabRoot;
