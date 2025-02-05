@@ -58,7 +58,7 @@ const index = () => {
         <Text style={styles.text}>Login</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={signUp}>
-        <Text style={styles.text}>Make Account</Text>
+        <Text style={styles.text}>Login As Admin</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

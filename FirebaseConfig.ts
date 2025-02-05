@@ -15,7 +15,6 @@ const firebaseConfig = {
   storageBucket: "groovelab-fd9e1.firebasestorage.app",
   messagingSenderId: "127817373650",
   appId: "1:127817373650:web:f1424ff3abaa65a6a49a0b",
-
 };
 
 // Initialize Firebase

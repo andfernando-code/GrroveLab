@@ -14,8 +14,9 @@ const TabRoot = () => {
           ),
         }}
       />
+
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
@@ -23,6 +24,7 @@ const TabRoot = () => {
           ),
         }}
       />
+
       <Tabs.Screen
         name="settings"
         options={{
@@ -32,6 +34,8 @@ const TabRoot = () => {
           ),
         }}
       />
+
+      <Tabs.Screen  name="pages/calendar" options={{href: null, headerTitle:"Calendar"}}/>
     </Tabs>
   );
 };

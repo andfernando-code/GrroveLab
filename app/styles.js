@@ -43,11 +43,39 @@ const styles = StyleSheet.create({
         alignItems: "center",
         height: 180,
         borderRadius: 15,
+        padding: 0,
     },
+
+    double_card_link: {
+        height: "100%",
+        width:"100%",
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    double_card_link_view: {
+        flex: 1,
+        height: "100%",
+        width: "100%",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
     double_card_text: {
         color: "white",
         fontSize: 20,
         fontWeight: "bold",
+    },
+
+    home_profile_image : {
+        width: 65,
+        height: 65,
+        borderRadius: "50%",
+        objectFit : "contain",
+        margin:10,
+        borderColor : "green",
+        borderWidth :2,
     }
 });
 
