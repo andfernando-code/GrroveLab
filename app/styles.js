@@ -19,12 +19,13 @@ const styles = StyleSheet.create({
     container_text_main_view:{
         flexDirection: "row",
         borderColor : "#FFBF00",
-        borderWidth : 2,
+        borderWidth : 3,
         borderRadius: 20,
         height: 100,
         alignItems: "center",
         padding: 15,
-        gap: "60%",
+        gap: "64%",
+        elevation: 1,
     },
 
     container_text_main_view_text : {

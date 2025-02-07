@@ -11,13 +11,18 @@ const Home = () => {
     <View style={{ flex: 1 }}>
       <View style={styles.home_container_profile}>
         <Text style={styles.container_text_main}>Welcome Nipuna!</Text>
-        <View style={styles.container_text_main_view}>
-          <Text style={styles.container_text_main_view_text}>Role</Text>
-          <Image
-            source={require("../../assets/images/favicon.png")}
-            style={styles.home_profile_image}
-          />
-        </View>
+
+        {/*Profile Section  */}
+          <Link href={"/pages/profile"}>
+            <View style={styles.container_text_main_view}>
+              <Text style={styles.container_text_main_view_text}>Role</Text>
+              <Image
+                source={require("../../assets/images/favicon.png")}
+                style={styles.home_profile_image}
+              />
+            </View>
+          </Link>
+       
       </View>
       <View style={styles.calendar_card}>
         <Link href={"/pages/calendar"} style={styles.double_card_link}>
