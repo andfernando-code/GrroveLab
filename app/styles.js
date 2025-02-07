@@ -7,12 +7,32 @@ const styles = StyleSheet.create({
         backgroundColor: "#001330",
         borderBottomLeftRadius: 30,
         borderBottomRightRadius: 30,
+        padding: 10,
     },
     container_text_main: {
         fontSize: 30,
         margin: 20,
         color: "white",
+        fontWeight: "bold",
     },
+
+    container_text_main_view:{
+        flexDirection: "row",
+        borderColor : "#FFBF00",
+        borderWidth : 2,
+        borderRadius: 20,
+        height: 100,
+        alignItems: "center",
+        padding: 15,
+        gap: "60%",
+    },
+
+    container_text_main_view_text : {
+        color: "#fff",
+        fontSize: 25,
+        fontWeight: "bold",
+    },
+
     calendar_card: {
         width: "auto", // Use a percentage width for responsiveness
         height: 180,
