@@ -35,7 +35,7 @@ const TabRoot = () => {
         }}
       />
 
-      <Tabs.Screen  name="pages/calendar" options={{href: null, headerTitle: "Calendar"}}/>
+      <Tabs.Screen  name="pages/event" options={{href: null, headerTitle: "Events"}}/>
       <Tabs.Screen  name="pages/profile" options={{href: null, headerTitle: "Profile"}}/>
     </Tabs>
   );

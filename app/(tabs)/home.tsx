@@ -25,9 +25,9 @@ const Home = () => {
        
       </View>
       <View style={styles.calendar_card}>
-        <Link href={"/pages/calendar"} style={styles.double_card_link}>
+        <Link href={"/pages/event"} style={styles.double_card_link}>
           <View style={styles.double_card_link_view}>
-            <Text style={styles.calendar_text}>Calendar</Text>
+            <Text style={styles.calendar_text}>Events</Text>
           </View>
         </Link>
       </View>
@@ -36,7 +36,7 @@ const Home = () => {
         <View style={styles.double_card}>
           <Link href={"/contact"} style={styles.double_card_link}>
             <View style={styles.double_card_link_view}>
-              <Text style={styles.double_card_text}>Setlist</Text>
+              <Text style={styles.double_card_text}>Schedule Practices</Text>
             </View>
           </Link>
         </View>
