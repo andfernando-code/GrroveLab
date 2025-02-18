@@ -101,11 +101,11 @@ const styles = StyleSheet.create({
 
   event_item: {
     margin: 10,
-    borderColor: "#000",
+    borderColor: "green",
     borderWidth: 3,
-    padding: 10,
+    padding: 15,
     borderRadius: 10,
-    backgroundColor: "#242424",
+    backgroundColor: "#014513",
   },
 });
 

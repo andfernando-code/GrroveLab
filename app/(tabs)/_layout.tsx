@@ -35,8 +35,18 @@ const TabRoot = () => {
         }}
       />
 
-      <Tabs.Screen  name="pages/event" options={{href: null, headerTitle: "Events"}}/>
-      <Tabs.Screen  name="pages/profile" options={{href: null, headerTitle: "Profile"}}/>
+      <Tabs.Screen
+        name="pages/event"
+        options={{ href: null, headerTitle: "Events" }}
+      />
+      <Tabs.Screen
+        name="pages/profile"
+        options={{ href: null, headerTitle: "Profile" }}
+      />
+      <Tabs.Screen
+        name="pages/eventItem"
+        options={{headerTitle: "EventItem" ,href: null}}
+      />
     </Tabs>
   );
 };

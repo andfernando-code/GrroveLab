@@ -1,37 +1,37 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, Button, Alert } from "react-native";
+import { View, Text, ActivityIndicator, Alert, RefreshControl, ScrollView, Pressable } from "react-native";
 import { db } from "../../../FirebaseConfig";
 import styles from "../../styles";
 import {
   collection,
-  addDoc,
   getDocs,
-  doc,
-  updateDoc,
-  deleteDoc,
   query,
-  where,
+  orderBy,
   DocumentData,
-  Timestamp,
 } from "firebase/firestore";
+import { Link, useRouter } from "expo-router";
 
 interface DataItem {
   id: string;
-  // Add your data fields here
   name: string;
   date: string;
   description: string;
-  // ... other fields
 }
 
 const Event = () => {
   const [items, setItems] = useState<DataItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter();
 
   const getItems = async () => {
     try {
       setLoading(true);
-      const querySnapshot = await getDocs(collection(db, "events"));
+      const eventsQuery = query(
+        collection(db, "events"),
+        orderBy("date", "desc")
+      );
+      const querySnapshot = await getDocs(eventsQuery);
       const itemsList: DataItem[] = [];
 
       querySnapshot.forEach((doc) => {
@@ -43,22 +43,56 @@ const Event = () => {
 
       setItems(itemsList);
     } catch (error) {
-      Alert.alert("Error", "Failed to fetch items");
+      Alert.alert("Error", "Failed to fetch events");
       console.error("Error getting documents:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    getItems();
   };
 
   useEffect(() => {
     getItems();
   }, []);
 
+  const handleEventPress = (item: DataItem) => {
+    router.push({
+      pathname: "/(tabs)/pages/eventItem",
+      params: {
+        id: item.id,
+        name: item.name,
+        date: item.date,
+        description: item.description,
+      },
+    });
+  };
+
+  if (loading) {
+    return (
+      <View>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
   return (
-    <View>
+    <ScrollView
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View>
         {items.map((item) => (
-          <View key={item.id} style={styles.event_item}>
+          <Pressable
+            key={item.id}
+            style={styles.event_item}
+            onPress={() => handleEventPress(item)}
+          >
             <Text
               style={{
                 color: "#fff",
@@ -68,12 +102,12 @@ const Event = () => {
               }}
             >
               {item.name}
-              Date: {item.date}
             </Text>
-          </View>
+            <Text style={{ color: "#fff" }}>Date: {item.date}</Text>
+          </Pressable>
         ))}
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
