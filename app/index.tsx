@@ -27,10 +27,10 @@ const index = () => {
     }
   };
 
-  const signUp = async () => {
+  const admin = async () => {
     try {
-      const user = await createUserWithEmailAndPassword(auth, email, password);
-      if (user) router.replace("/(tabs)/home");
+      const user = await signInWithEmailAndPassword(auth, email, password); //only replace "signInWithEmailAndPassword"
+      if (user) router.replace("/admin/adminhome");
     } catch (error: any) {
       console.log(error);
       alert("Sign in failed: " + error.message);
@@ -55,9 +55,9 @@ const index = () => {
         secureTextEntry
       />
       <TouchableOpacity style={styles.button} onPress={signIn}>
-        <Text style={styles.text}>Login</Text>
+        <Text style={styles.text}>Login As User</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={signUp}>
+      <TouchableOpacity style={styles.button} onPress={admin}>
         <Text style={styles.text}>Login As Admin</Text>
       </TouchableOpacity>
     </SafeAreaView>
