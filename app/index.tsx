@@ -1,100 +1,132 @@
+import React, { useState } from "react";
 import {
   Text,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   SafeAreaView,
+  Alert,
 } from "react-native";
-import React, { useState } from "react";
-import { auth } from "../FirebaseConfig";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
+import { db } from "../FirebaseConfig";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { router } from "expo-router";
 
-const index = () => {
+const Index = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const signIn = async () => {
     try {
-      const user = await signInWithEmailAndPassword(auth, email, password);
-      if (user) router.replace("/(tabs)/home");
-    } catch (error: any) {
-      console.log(error);
-      alert("Sign in failed: " + error.message);
+      const q = query(collection(db, "users"), where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        Alert.alert("Login Failed", "No user found with this email");
+        return;
+      }
+
+      querySnapshot.forEach((doc) => {
+        const userData = doc.data();
+        if (userData.password === password) {
+          router.replace("/(tabs)/home");
+        } else {
+          Alert.alert("Login Failed", "Incorrect password");
+        }
+      });
+    } catch (error) {
+      console.error("Error signing in:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
     }
   };
 
-  const admin = async () => {
+  const adminSignIn = async () => {
     try {
-      const user = await signInWithEmailAndPassword(auth, email, password); //only replace "signInWithEmailAndPassword"
-      if (user) router.replace("/admin/adminhome");
-    } catch (error: any) {
-      console.log(error);
-      alert("Sign in failed: " + error.message);
+      const q = query(
+        collection(db, "admins"),
+        where("email", "==", email)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        Alert.alert("Login Failed", "No admin found with this email");
+        return;
+      }
+
+      querySnapshot.forEach((doc) => {
+        const userData = doc.data();
+        if (userData.password === password) {
+          router.replace("/admin/adminhome");
+        } else {
+          Alert.alert("Login Failed", "Incorrect password");
+        }
+      });
+    } catch (error) {
+      console.error("Error signing in as admin:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={{fontSize:30,marginBottom: 10, fontWeight: "bold", color: "blue"}}>GrooveLab</Text>
+      <Text style={styles.header}>GrooveLab</Text>
       <Text style={styles.title}>Login</Text>
       <TextInput
         style={styles.textInput}
-        placeholder="email"
+        placeholder="Email"
         value={email}
         onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
       />
       <TextInput
         style={styles.textInput}
-        placeholder="password"
+        placeholder="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
       <TouchableOpacity style={styles.button} onPress={signIn}>
-        <Text style={styles.text}>Login As User</Text>
+        <Text style={styles.buttonText}>Login As User</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={admin}>
-        <Text style={styles.text}>Login As Admin</Text>
+      <TouchableOpacity style={styles.button} onPress={adminSignIn}>
+        <Text style={styles.buttonText}>Login As Admin</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
 };
 
-export default index;
+export default Index;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FAFAFA", 
+    backgroundColor: "#FAFAFA",
+  },
+  header: {
+    fontSize: 30,
+    marginBottom: 10,
+    fontWeight: "bold",
+    color: "blue",
   },
   title: {
     fontSize: 28,
     fontWeight: "800",
-    marginBottom: 40, 
+    marginBottom: 40,
     color: "#1A237E",
   },
   textInput: {
-    height: 50, 
-    width: "90%", 
-    backgroundColor: "#4f4f4f", 
+    height: 50,
+    width: "90%",
+    backgroundColor: "#4f4f4f",
     borderColor: "#E8EAF6",
     borderWidth: 2,
-    borderRadius: 15, 
+    borderRadius: 15,
     marginVertical: 15,
-    paddingHorizontal: 25, 
-    fontSize: 16, 
+    paddingHorizontal: 25,
+    fontSize: 16,
     color: "#fff",
-    shadowColor: "#9E9E9E", 
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
   button: {
     width: "90%",
@@ -104,14 +136,9 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#5C6BC0",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-    elevation: 5,
   },
-  text: {
-    color: "#FFFFFF", 
+  buttonText: {
+    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "600",
   },

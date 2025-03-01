@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 const adminstyles = StyleSheet.create({
   button_view_container: {
     flex: 1,
-    height: 400,
+    height: "auto",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -12,6 +12,7 @@ const adminstyles = StyleSheet.create({
   button_view: {
     flex: 1,
     width: "100%",
+    height: 120,
     justifyContent: "center",
     alignItems: "center",
     margin: 10,
@@ -26,12 +27,7 @@ const adminstyles = StyleSheet.create({
     shadowRadius: 6,
   },
 
-  button_view_link : {
-    flex: 1,
-    width: "100%",
-  },
-
-  button_view_link_view : {
+  button_view_view : {
     flex: 1,
     width: "100%",
     height: "100%",

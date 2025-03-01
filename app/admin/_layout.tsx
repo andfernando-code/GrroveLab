@@ -7,6 +7,7 @@ const AdminLayout = () => {
    <Stack>
     <Stack.Screen name='adminhome' options={{headerTitle: "Admin Panel"}}/>
     <Stack.Screen name='addsong' options={{headerTitle: "Add a Song"}}/>
+    <Stack.Screen name='addmember' options={{headerTitle: "Add a Member"}}/>
    </Stack>
   )
 }
