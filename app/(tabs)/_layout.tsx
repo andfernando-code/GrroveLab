@@ -6,21 +6,21 @@ const TabRoot = () => {
   return (
     <Tabs>
       <Tabs.Screen
-        name="contact"
-        options={{
-          title: "Contact",
-          tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="envelope" color={color} size={size} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
         name="home"
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
             <FontAwesome name="home" color={color} size={30} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="contact"
+        options={{
+          title: "Contact",
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="envelope" color={color} size={size} />
           ),
         }}
       />
@@ -45,7 +45,7 @@ const TabRoot = () => {
       />
       <Tabs.Screen
         name="pages/eventItem"
-        options={{headerTitle: "EventItem" ,href: null}}
+        options={{ headerTitle: "EventItem", href: null }}
       />
     </Tabs>
   );

@@ -10,6 +10,8 @@ import {
 import { db } from "../FirebaseConfig";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { router } from "expo-router";
+import { View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Index = () => {
   const [email, setEmail] = useState("");
@@ -17,53 +19,80 @@ const Index = () => {
 
   const signIn = async () => {
     try {
-      const q = query(collection(db, "users"), where("email", "==", email));
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        Alert.alert("Login Failed", "No user found with this email");
-        return;
-      }
-
-      querySnapshot.forEach((doc) => {
-        const userData = doc.data();
-        if (userData.password === password) {
-          router.replace("/(tabs)/home");
-        } else {
-          Alert.alert("Login Failed", "Incorrect password");
+      // Search in all bands for a matching user
+      const bandsSnapshot = await getDocs(collection(db, "bands"));
+      let userFound = false;
+  
+      for (const bandDoc of bandsSnapshot.docs) {
+        const bandId = bandDoc.id;
+        const usersQuery = query(
+          collection(db, `bands/${bandId}/users`),
+          where("email", "==", email)
+        );
+        const usersSnapshot = await getDocs(usersQuery);
+  
+        if (!usersSnapshot.empty) {
+          usersSnapshot.forEach((doc) => {
+            const userData = doc.data();
+            if (userData.password === password) {
+              userFound = true;
+              router.replace("/(tabs)/home");
+            }
+          });
         }
-      });
+      }
+  
+      if (!userFound) {
+        Alert.alert("Login Failed", "Incorrect email or password");
+      }
     } catch (error) {
       console.error("Error signing in:", error);
       Alert.alert("Error", "Something went wrong. Please try again.");
     }
   };
-
-  const adminSignIn = async () => {
+  
+  const adminlogin = async () => {
     try {
-      const q = query(
-        collection(db, "admins"),
-        where("email", "==", email)
-      );
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        Alert.alert("Login Failed", "No admin found with this email");
-        return;
-      }
-
-      querySnapshot.forEach((doc) => {
-        const userData = doc.data();
-        if (userData.password === password) {
-          router.replace("/admin/adminhome");
-        } else {
-          Alert.alert("Login Failed", "Incorrect password");
+      const bandsSnapshot = await getDocs(collection(db, "bands"));
+      let adminFound = false;
+      let adminBandName = "";
+  
+      for (const bandDoc of bandsSnapshot.docs) {
+        const bandId = bandDoc.id;
+        const adminsQuery = query(
+          collection(db, `bands/${bandId}/admins`),
+          where("email", "==", email)
+        );
+        const adminsSnapshot = await getDocs(adminsQuery);
+  
+        if (!adminsSnapshot.empty) {
+          adminsSnapshot.forEach(async (doc) => {
+            const adminData = doc.data();
+            if (adminData.password === password) {
+              adminFound = true;
+              adminBandName = adminData.bandName;
+  
+              // ✅ Store Band Name in AsyncStorage
+              await AsyncStorage.setItem("bandName", adminBandName);
+  
+              router.replace("/admin/adminhome");
+            }
+          });
         }
-      });
+      }
+  
+      if (!adminFound) {
+        Alert.alert("Login Failed", "Incorrect email or password");
+      }
     } catch (error) {
       console.error("Error signing in as admin:", error);
       Alert.alert("Error", "Something went wrong. Please try again.");
     }
+  };
+  
+
+  const adminSignIn = () => {
+    router.replace("/admin/adminsignin");
   };
 
   return (
@@ -85,12 +114,17 @@ const Index = () => {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <TouchableOpacity style={styles.button} onPress={signIn}>
+      <TouchableOpacity style={styles.button_user} onPress={signIn}>
         <Text style={styles.buttonText}>Login As User</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={adminSignIn}>
-        <Text style={styles.buttonText}>Login As Admin</Text>
-      </TouchableOpacity>
+      <View>
+        <TouchableOpacity style={styles.button} onPress={adminlogin}>
+          <Text style={styles.buttonText}>Login As Admin</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={adminSignIn}>
+          <Text style={styles.buttonText}>Sign Up As Admin</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -129,7 +163,7 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   button: {
-    width: "90%",
+    width: "auto",
     marginVertical: 15,
     backgroundColor: "#5C6BC0",
     padding: 20,
@@ -137,6 +171,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
+  button_user : {
+    width: "auto",
+    marginVertical: 15,
+    backgroundColor: "#000",
+    padding: 20,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   buttonText: {
     color: "#FFFFFF",
     fontSize: 18,
