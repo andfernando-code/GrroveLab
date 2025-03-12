@@ -15,7 +15,7 @@ import { router } from "expo-router";
 
 const AdminHome = () => {
   const [bandName, setBandName] = useState("");
-  const [bandId, setBandId] = useState(null);
+  const [bandId, setBandId] = useState<string | null>(null);
   const [totalMembers, setTotalMembers] = useState(0);
 
   useEffect(() => {
@@ -86,6 +86,15 @@ const AdminHome = () => {
           <TouchableOpacity
             style={adminstyles.button_view}
             onPress={() => router.push("/admin/schedule")}
+          >
+            <View style={adminstyles.button_view_view}>
+              <IconSymbol name={"calendar"} color={"#fff"} size={40} style={{ margin: 10 }} />
+              <Text style={adminstyles.button_view_text}>Schedule Practices</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={adminstyles.button_view}
+            onPress={() => router.push("/admin/addevent")}
           >
             <View style={adminstyles.button_view_view}>
               <IconSymbol name={"calendar"} color={"#fff"} size={40} style={{ margin: 10 }} />

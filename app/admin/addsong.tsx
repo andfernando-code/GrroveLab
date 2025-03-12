@@ -1,20 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Alert, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Button, Alert, ActivityIndicator, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../FirebaseConfig';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+// Define the types
+interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  duration: string;
+  genres: string;
+  createdAt: Date;
+}
+
+// Assuming you have a RootStackParamList defined elsewhere in your app
+// If not, you should create one
+type RootStackParamList = {
+  Home: undefined;
+  AddSong: undefined;
+  // Add other screens as needed
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const AddSong = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
 
   const [bandId, setBandId] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
-  const [artist, setArtist] = useState('');
-  const [duration, setDuration] = useState('');
-  const [genres, setGenres] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [songs, setSongs] = useState([]);
+  const [title, setTitle] = useState<string>('');
+  const [artist, setArtist] = useState<string>('');
+  const [duration, setDuration] = useState<string>('');
+  const [genres, setGenres] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [songs, setSongs] = useState<Song[]>([]);
 
   useEffect(() => {
     const fetchBandId = async () => {
@@ -54,7 +75,7 @@ const AddSong = () => {
       const songList = songsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-      }));
+      })) as Song[];
 
       setSongs(songList);
     } catch (error) {
@@ -111,6 +132,10 @@ const AddSong = () => {
         text: "Delete",
         onPress: async () => {
           try {
+            if (!bandId) {
+              Alert.alert("Error", "Band ID not found");
+              return;
+            }
             await deleteDoc(doc(db, `bands/${bandId}/songs`, songId));
             Alert.alert("Success", "Song removed successfully!");
             fetchSongs();
@@ -122,6 +147,18 @@ const AddSong = () => {
       },
     ]);
   };
+
+  const renderSongItem = ({ item }: { item: Song }) => (
+    <View style={styles.songItem}>
+      <View>
+        <Text style={styles.songText}>{item.title} - {item.artist}</Text>
+        <Text style={{ fontSize: 14, color: 'gray' }}>{item.duration} | {item.genres}</Text>
+      </View>
+      <TouchableOpacity onPress={() => handleDeleteSong(item.id)} style={styles.deleteButton}>
+        <Text style={{ color: 'white', fontWeight: 'bold' }}>Remove</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={{ padding: 20, flex: 1 }}>
@@ -147,23 +184,11 @@ const AddSong = () => {
       <FlatList
         data={songs}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.songItem}>
-            <View>
-              <Text style={styles.songText}>{item.title} - {item.artist}</Text>
-              <Text style={{ fontSize: 14, color: 'gray' }}>{item.duration} | {item.genres}</Text>
-            </View>
-            <TouchableOpacity onPress={() => handleDeleteSong(item.id)} style={styles.deleteButton}>
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>Remove</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        renderItem={renderSongItem}
       />
     </View>
   );
 };
-
-import { StyleSheet, TextStyle } from 'react-native';
 
 const styles = StyleSheet.create({
   input: {
@@ -174,7 +199,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 10,
     borderRadius: 5,
-  } as TextStyle,
+  },
   songItem: {
     flexDirection: "row",
     justifyContent: "space-between",

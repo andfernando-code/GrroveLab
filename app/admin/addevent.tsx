@@ -7,7 +7,7 @@ import { db } from "../../FirebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Define proper TypeScript interfaces
-interface ScheduleItem {
+interface eventItem {
   id: string;
   location: string;
   dateTime: string;
@@ -22,12 +22,12 @@ interface MarkedDates {
   };
 }
 
-const Schedule = () => {
+const AddEvent = () => {
   const [bandId, setBandId] = useState<string>("");
   const [location, setLocation] = useState<string>("");
   const [specialNotes, setSpecialNotes] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [events, setevents] = useState<eventItem[]>([]);
   const [markedDates, setMarkedDates] = useState<MarkedDates>({});
 
   // Date & Time Picker State
@@ -37,7 +37,7 @@ const Schedule = () => {
 
   // Modal State
   const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [selectedEvent, setSelectedEvent] = useState<ScheduleItem | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<eventItem | null>(null);
 
   useEffect(() => {
     const fetchBandId = async () => {
@@ -60,37 +60,37 @@ const Schedule = () => {
 
   useEffect(() => {
     if (bandId) {
-      fetchSchedules();
+      fetchevents();
     }
   }, [bandId]);
 
-  // Fetch schedules and mark dates
-  const fetchSchedules = async () => {
+  // Fetch events and mark dates
+  const fetchevents = async () => {
     try {
-      const scheduleQuery = collection(db, `bands/${bandId}/schedules`);
-      const scheduleSnapshot = await getDocs(scheduleQuery);
+      const eventQuery = collection(db, `bands/${bandId}/events`);
+      const eventSnapshot = await getDocs(eventQuery);
 
-      const scheduleList = scheduleSnapshot.docs.map((doc) => ({
+      const eventList = eventSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      })) as ScheduleItem[];
+      })) as eventItem[];
 
-      setSchedules(scheduleList);
+      setevents(eventList);
 
       // Mark dates in green
       const marked: MarkedDates = {};
-      scheduleList.forEach((item) => {
+      eventList.forEach((item) => {
         const dateKey = item.dateTime.split("T")[0];
-        marked[dateKey] = { selected: true, selectedColor: "green" };
+        marked[dateKey] = { selected: true, selectedColor: "#6e0307" };
       });
 
       setMarkedDates(marked);
     } catch (error) {
-      console.error("Error fetching schedules:", error);
+      console.error("Error fetching events:", error);
     }
   };
 
-  const handleAddSchedule = async () => {
+  const handleAddevent = async () => {
     if (!location || !date) {
       Alert.alert("Error", "Location and Date/Time are required!");
       return;
@@ -104,31 +104,31 @@ const Schedule = () => {
     try {
       setLoading(true);
 
-      const newSchedule = {
+      const newevent = {
         location,
         dateTime: date.toISOString(),
         specialNotes,
         createdAt: new Date(),
       };
 
-      await addDoc(collection(db, `bands/${bandId}/schedules`), newSchedule);
+      await addDoc(collection(db, `bands/${bandId}/events`), newevent);
 
-      Alert.alert("Success", "Schedule added successfully!");
+      Alert.alert("Success", "event added successfully!");
       setLocation("");
       setSpecialNotes("");
       setDate(new Date());
 
-      fetchSchedules(); // Refresh list
+      fetchevents(); // Refresh list
     } catch (error) {
-      console.error("Error adding schedule:", error);
-      Alert.alert("Error", "Failed to add schedule");
+      console.error("Error adding event:", error);
+      Alert.alert("Error", "Failed to add event");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteSchedule = async (scheduleId: string) => {
-    Alert.alert("Confirm", "Are you sure you want to remove this schedule?", [
+  const handleDeleteevent = async (eventId: string) => {
+    Alert.alert("Confirm", "Are you sure you want to remove this event?", [
       {
         text: "Cancel",
         style: "cancel",
@@ -137,13 +137,13 @@ const Schedule = () => {
         text: "Delete",
         onPress: async () => {
           try {
-            await deleteDoc(doc(db, `bands/${bandId}/schedules`, scheduleId));
-            Alert.alert("Success", "Schedule removed successfully!");
+            await deleteDoc(doc(db, `bands/${bandId}/events`, eventId));
+            Alert.alert("Success", "Event removed successfully!");
             setModalVisible(false);
-            fetchSchedules(); // Refresh list
+            fetchevents(); // Refresh list
           } catch (error) {
-            console.error("Error deleting schedule:", error);
-            Alert.alert("Error", "Failed to remove schedule");
+            console.error("Error deleting event:", error);
+            Alert.alert("Error", "Failed to remove event");
           }
         },
       },
@@ -152,9 +152,9 @@ const Schedule = () => {
 
   // Handle date selection
   const handleDateSelect = (day: { dateString: string }) => {
-    const selectedSchedules = schedules.filter((s) => s.dateTime.startsWith(day.dateString));
-    if (selectedSchedules.length > 0) {
-      setSelectedEvent(selectedSchedules[0]);
+    const selectedevents = events.filter((s) => s.dateTime.startsWith(day.dateString));
+    if (selectedevents.length > 0) {
+      setSelectedEvent(selectedevents[0]);
       setModalVisible(true);
     }
   };
@@ -162,7 +162,7 @@ const Schedule = () => {
   return (
     <View style={{ padding: 20, flex: 1 }}>
       <Text style={{ fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" }}>
-        Manage Band Schedules
+        Manage Band events
       </Text>
 
       {/* 📅 Select Date */}
@@ -203,10 +203,10 @@ const Schedule = () => {
       {loading ? (
         <ActivityIndicator size="large" color="#0000ff" />
       ) : (
-        <Button title="Add Schedule" onPress={handleAddSchedule} />
+        <Button title="Add Event" onPress={handleAddevent} />
       )}
 
-      <Text style={{ fontSize: 20, fontWeight: "bold", marginTop: 30, marginBottom: 10 }}>Scheduled Practices</Text>
+      <Text style={{ fontSize: 20, fontWeight: "bold", marginTop: 30, marginBottom: 10 }}>Added Events</Text>
 
       {/* 📆 Calendar View */}
       <Calendar markedDates={markedDates} onDayPress={handleDateSelect} />
@@ -217,12 +217,12 @@ const Schedule = () => {
           <View style={styles.modalContent}>
             {selectedEvent && (
               <>
-                <Text style={styles.modalTitle}>Practice Details</Text>
+                <Text style={styles.modalTitle}>Event Details</Text>
                 <Text>📍 Location: {selectedEvent.location}</Text>
                 <Text>🗓 Date: {new Date(selectedEvent.dateTime).toDateString()}</Text>
                 <Text>⏰ Time: {new Date(selectedEvent.dateTime).toLocaleTimeString()}</Text>
                 {selectedEvent.specialNotes ? <Text>📝 Notes: {selectedEvent.specialNotes}</Text> : null}
-                <Button title="Remove" color="red" onPress={() => handleDeleteSchedule(selectedEvent.id)} />
+                <Button title="Remove" color="red" onPress={() => handleDeleteevent(selectedEvent.id)} />
               </>
             )}
             <Button title="Close" onPress={() => setModalVisible(false)} />
@@ -264,4 +264,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Schedule;
+export default AddEvent;

@@ -10,15 +10,19 @@ const EventItem = () => {
     <View style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>{params.name}</Text>
-        <Text style={styles.date}>Date: {params.date}</Text>
-        <Text style={styles.description}>{params.description}</Text>
+        <Text style={styles.date}>
+          🗓 Date: {new Date(params.dateTime as string).toDateString()}
+        </Text>
+        <Text style={styles.date}>
+          ⏰ Time: {new Date(params.dateTime as string).toLocaleTimeString()}
+        </Text>
+        {params.specialNotes ? (
+          <Text style={styles.description}>📝 {params.specialNotes}</Text>
+        ) : null}
       </View>
-      
-      <Pressable 
-        style={styles.backButton}
-        onPress={() => router.push({pathname:"/(tabs)/pages/event"})}
-      >
-        <Text style={styles.backButtonText}>Back to Events</Text>
+
+      <Pressable style={styles.backButton} onPress={() => router.push("/(tabs)/pages/event")}>
+        <Text style={styles.backButtonText}>⬅ Back to Events</Text>
       </Pressable>
     </View>
   );
@@ -35,34 +39,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
-    elevation: 2,
+    elevation: 3,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 8,
+    color: "#333",
   },
   date: {
     fontSize: 16,
     color: "#666",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   description: {
     fontSize: 16,
     lineHeight: 24,
+    color: "#444",
   },
   backButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#6e0307",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
+    marginTop: 20,
   },
   backButtonText: {
     color: "white",

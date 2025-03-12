@@ -10,6 +10,7 @@ const AdminLayout = () => {
     <Stack.Screen name='addmember' options={{headerTitle: "Add a Member"}}/>
     <Stack.Screen name='adminsignin' options={{headerShown: false}}/>
     <Stack.Screen name='schedule' options={{headerTitle: "Shedule Practices"}}/>
+    <Stack.Screen name='addevent' options={{headerTitle: "Add an Event"}}/>
    </Stack>
   )
 }
