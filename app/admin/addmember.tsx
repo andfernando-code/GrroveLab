@@ -9,6 +9,7 @@ const AddMember = () => {
   const navigation = useNavigation();
 
   const [bandId, setBandId] = useState(null);
+  const [bandName, setBandName] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
@@ -17,10 +18,12 @@ const AddMember = () => {
   const [members, setMembers] = useState([]);
 
   useEffect(() => {
-    const fetchBandId = async () => {
+    const fetchBandDetails = async () => {
       try {
         const storedBandName = await AsyncStorage.getItem('bandName');
         if (storedBandName) {
+          setBandName(storedBandName); // ✅ Store band name locally
+
           // 🔍 Fetch band ID based on stored band name
           const bandQuery = query(collection(db, "bands"), where("bandName", "==", storedBandName));
           const bandSnapshot = await getDocs(bandQuery);
@@ -31,11 +34,11 @@ const AddMember = () => {
           }
         }
       } catch (error) {
-        console.error("Error fetching band ID:", error);
+        console.error("Error fetching band details:", error);
       }
     };
 
-    fetchBandId();
+    fetchBandDetails();
   }, []);
 
   useEffect(() => {
@@ -67,20 +70,21 @@ const AddMember = () => {
       return;
     }
 
-    if (!bandId) {
-      Alert.alert("Error", "Band ID not found. Try again later.");
+    if (!bandId || !bandName) {
+      Alert.alert("Error", "Band details not found. Try again later.");
       return;
     }
 
     try {
       setLoading(true);
 
-      // ✅ Save member details in Firestore
+      // ✅ Save member details in Firestore, including the band name
       const newUser = {
         name,
         email,
         role,
         password, // 🔴 Hash before storing in production
+        bandName, // ✅ Store band name with user
         createdAt: new Date(),
       };
 
@@ -103,10 +107,7 @@ const AddMember = () => {
 
   const handleDeleteMember = async (memberId: string) => {
     Alert.alert("Confirm", "Are you sure you want to remove this member?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
+      { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         onPress: async () => {
