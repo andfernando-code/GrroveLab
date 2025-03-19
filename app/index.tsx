@@ -25,6 +25,7 @@ const Index = () => {
   
       for (const bandDoc of bandsSnapshot.docs) {
         const bandId = bandDoc.id;
+        const bandData = bandDoc.data();
         const usersQuery = query(
           collection(db, `bands/${bandId}/users`),
           where("email", "==", email)
@@ -32,10 +33,15 @@ const Index = () => {
         const usersSnapshot = await getDocs(usersQuery);
   
         if (!usersSnapshot.empty) {
-          usersSnapshot.forEach((doc) => {
+          usersSnapshot.forEach(async (doc) => {
             const userData = doc.data();
             if (userData.password === password) {
               userFound = true;
+              
+              // Store user email and band name in AsyncStorage
+              await AsyncStorage.setItem("userEmail", email);
+              await AsyncStorage.setItem("bandName", userData.bandName || bandData.bandName);
+              
               router.replace("/(tabs)/home");
             }
           });
