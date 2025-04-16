@@ -7,6 +7,17 @@ const adminstyles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+    borderWidth: 2,
+    borderColor: "gray",
+    border: 10,
+    borderRadius: 20,
+    margin: 5,
+  },
+
+  full_container: {
+    padding: 10,
+    zIndex: 1,
+
   },
 
   button_view: {
@@ -47,6 +58,7 @@ const adminstyles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
+    backgroundColor : "black",
   },
 
   admin_panel_text: {

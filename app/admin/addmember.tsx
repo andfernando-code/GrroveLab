@@ -1,21 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Alert, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Button, Alert, ActivityIndicator, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../FirebaseConfig'; 
 import { useNavigation } from '@react-navigation/native';
 
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  password: string;
+  bandName: string;
+  createdAt: Date;
+}
+
 const AddMember = () => {
   const navigation = useNavigation();
 
-  const [bandId, setBandId] = useState(null);
+  const [bandId, setBandId] = useState<string | null>(null);
   const [bandName, setBandName] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [members, setMembers] = useState([]);
+  const [members, setMembers] = useState<Member[]>([]);
 
   useEffect(() => {
     const fetchBandDetails = async () => {
@@ -31,10 +41,15 @@ const AddMember = () => {
           if (!bandSnapshot.empty) {
             const bandDoc = bandSnapshot.docs[0];
             setBandId(bandDoc.id); // ✅ Store band ID
+          } else {
+            Alert.alert("Error", "Band not found in database");
           }
+        } else {
+          Alert.alert("Error", "Band name not found in local storage");
         }
       } catch (error) {
         console.error("Error fetching band details:", error);
+        Alert.alert("Error", "Failed to fetch band details");
       }
     };
 
@@ -49,6 +64,8 @@ const AddMember = () => {
 
   // 🔄 Fetch all band members
   const fetchMembers = async () => {
+    if (!bandId) return;
+    
     try {
       const usersQuery = collection(db, `bands/${bandId}/users`);
       const usersSnapshot = await getDocs(usersQuery);
@@ -56,11 +73,12 @@ const AddMember = () => {
       const userList = usersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-      }));
+      })) as Member[];
 
       setMembers(userList);
     } catch (error) {
       console.error("Error fetching members:", error);
+      Alert.alert("Error", "Failed to fetch band members");
     }
   };
 
@@ -78,12 +96,15 @@ const AddMember = () => {
     try {
       setLoading(true);
 
+      // TODO: Hash password before storing in production
+      // For example: const hashedPassword = await bcrypt.hash(password, 10);
+      
       // ✅ Save member details in Firestore, including the band name
       const newUser = {
         name,
         email,
         role,
-        password, // 🔴 Hash before storing in production
+        password, // 🔴 Should be hashed in production
         bandName, // ✅ Store band name with user
         createdAt: new Date(),
       };
@@ -106,6 +127,11 @@ const AddMember = () => {
   };
 
   const handleDeleteMember = async (memberId: string) => {
+    if (!bandId) {
+      Alert.alert("Error", "Band ID not found");
+      return;
+    }
+    
     Alert.alert("Confirm", "Are you sure you want to remove this member?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -161,8 +187,6 @@ const AddMember = () => {
   );
 };
 
-import { StyleSheet, TextStyle } from 'react-native';
-
 const styles = StyleSheet.create({
   input: {
     width: '100%',
@@ -172,7 +196,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 10,
     borderRadius: 5,
-  } as TextStyle,
+  },
   memberItem: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -1,26 +1,26 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { FontAwesome } from "@expo/vector-icons"; // Import FontAwesome
+import { FontAwesome } from "@expo/vector-icons";
+import { Colors } from "react-native/Libraries/NewAppScreen";
 
 const TabRoot = () => {
   return (
-    <Tabs>
+    <Tabs screenOptions={{headerStyle:{backgroundColor: "#6C63FF"}, headerTintColor: "#fff"}}>
       <Tabs.Screen
         name="home"
         options={{
-          title: "Home",
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color }) => (
             <FontAwesome name="home" color={color} size={30} />
           ),
+          headerTitle: "Home",
         }}
       />
 
       <Tabs.Screen
-        name="contact"
+        name="chat"
         options={{
-          title: "Contact",
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="envelope" color={color} size={size} />
+            <FontAwesome name= "mobile-phone" color={color} size={32} />
           ),
         }}
       />
@@ -28,7 +28,6 @@ const TabRoot = () => {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Settings",
           tabBarIcon: ({ color, size }) => (
             <FontAwesome name="cogs" color={color} size={size} />
           ),
@@ -37,15 +36,15 @@ const TabRoot = () => {
 
       <Tabs.Screen
         name="pages/event"
-        options={{ href: null, headerTitle: "Events" }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="pages/profile"
-        options={{ href: null, headerTitle: "Profile" }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="pages/eventItem"
-        options={{ headerTitle: "EventItem", href: null }}
+        options={{ href: null }}
       />
     </Tabs>
   );

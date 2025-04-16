@@ -4,7 +4,6 @@ const styles = StyleSheet.create({
   home_container_profile: {
     width: "100%",
     height: 300,
-    backgroundColor: "#001330",
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     padding: 10,
@@ -18,9 +17,6 @@ const styles = StyleSheet.create({
 
   container_text_main_view: {
     flexDirection: "row",
-    borderColor: "#FFBF00",
-    borderWidth: 3,
-    borderRadius: 20,
     height: 100,
     alignItems: "center",
     padding: 15,
@@ -36,9 +32,9 @@ const styles = StyleSheet.create({
 
   calendar_card: {
     width: "auto", // Use a percentage width for responsiveness
-    height: 180,
+    height: 200,
     padding: 0,
-    backgroundColor: "#021896",
+    backgroundColor: "#6C63FF",
     margin: 20,
     borderRadius: 15,
     flex: 1,
@@ -52,9 +48,13 @@ const styles = StyleSheet.create({
   },
   double_card_container: {
     margin: 20,
+    padding: 10,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderBlockColor: "gray",
+    borderRadius: 20,
   },
   double_card: {
     margin: 10,
@@ -107,6 +107,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#014513",
   },
-});
+},);
 
 export default styles;

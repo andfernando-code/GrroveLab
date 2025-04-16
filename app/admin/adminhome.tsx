@@ -12,6 +12,7 @@ import { db } from "../../FirebaseConfig"; // Ensure Firebase is properly config
 import adminstyles from "./adminstyle";
 import { IconSymbol } from "@/app-example/components/ui/IconSymbol.ios";
 import { router } from "expo-router";
+import styles from "../styles";
 
 const AdminHome = () => {
   const [bandName, setBandName] = useState("");
@@ -24,9 +25,12 @@ const AdminHome = () => {
         const storedBandName = await AsyncStorage.getItem("bandName");
         if (storedBandName) {
           setBandName(storedBandName);
-          
+
           // Fetch bandId from Firestore
-          const bandQuery = query(collection(db, "bands"), where("bandName", "==", storedBandName));
+          const bandQuery = query(
+            collection(db, "bands"),
+            where("bandName", "==", storedBandName)
+          );
           const bandSnapshot = await getDocs(bandQuery);
 
           if (!bandSnapshot.empty) {
@@ -51,8 +55,7 @@ const AdminHome = () => {
   return (
     <ScrollView>
       <View style={{ flex: 1 }}>
-        <ImageBackground
-          source={require("../../assets/images/adminpanel.png")}
+        <View
           style={adminstyles.admin_panel}
         >
           {/* ✅ Display Band Name and Total Members */}
@@ -62,7 +65,9 @@ const AdminHome = () => {
           <Text style={adminstyles.admin_panel_text}>
             Total Members: {totalMembers}
           </Text>
-        </ImageBackground>
+        </View>
+        
+        <View style={adminstyles.full_container}>
 
         <View style={adminstyles.button_view_container}>
           <TouchableOpacity
@@ -70,7 +75,12 @@ const AdminHome = () => {
             onPress={() => router.push("/admin/addmember")}
           >
             <View style={adminstyles.button_view_view}>
-              <IconSymbol name={"person.badge.plus"} color={"#fff"} size={40} style={{ margin: 10 }} />
+              <IconSymbol
+                name={"person.badge.plus"}
+                color={"#fff"}
+                size={40}
+                style={{ margin: 10 }}
+              />
               <Text style={adminstyles.button_view_text}>Add a Member</Text>
             </View>
           </TouchableOpacity>
@@ -79,17 +89,45 @@ const AdminHome = () => {
             onPress={() => router.push("/admin/addsong")}
           >
             <View style={adminstyles.button_view_view}>
-              <IconSymbol name={"plus"} color={"#fff"} size={40} style={{ margin: 10 }} />
+              <IconSymbol
+                name={"plus"}
+                color={"#fff"}
+                size={40}
+                style={{ margin: 10 }}
+              />
               <Text style={adminstyles.button_view_text}>Add a Song</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={adminstyles.button_view}
+            onPress={() => router.push("/admin/setlistgenerator")}
+          >
+            <View style={adminstyles.button_view_view}>
+              <IconSymbol
+                name={"plus"}
+                color={"#fff"}
+                size={40}
+                style={{ margin: 10 }}
+              />
+              <Text style={adminstyles.button_view_text}>Generate a Setlist</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+        <View style={adminstyles.button_view_container}>
+          <TouchableOpacity
+            style={adminstyles.button_view}
             onPress={() => router.push("/admin/schedule")}
           >
             <View style={adminstyles.button_view_view}>
-              <IconSymbol name={"calendar"} color={"#fff"} size={40} style={{ margin: 10 }} />
-              <Text style={adminstyles.button_view_text}>Schedule Practices</Text>
+              <IconSymbol
+                name={"calendar"}
+                color={"#fff"}
+                size={40}
+                style={{ margin: 10 }}
+              />
+              <Text style={adminstyles.button_view_text}>
+                Schedule Practices
+              </Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -97,10 +135,18 @@ const AdminHome = () => {
             onPress={() => router.push("/admin/addevent")}
           >
             <View style={adminstyles.button_view_view}>
-              <IconSymbol name={"calendar"} color={"#fff"} size={40} style={{ margin: 10 }} />
-              <Text style={adminstyles.button_view_text}>Schedule Practices</Text>
+              <IconSymbol
+                name={"calendar"}
+                color={"#fff"}
+                size={40}
+                style={{ margin: 10 }}
+              />
+              <Text style={adminstyles.button_view_text}>
+                Schedule Practices
+              </Text>
             </View>
           </TouchableOpacity>
+        </View>
         </View>
       </View>
     </ScrollView>
