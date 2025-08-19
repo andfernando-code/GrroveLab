@@ -12,6 +12,8 @@ const AdminLayout = () => {
     <Stack.Screen name='schedule' options={{headerTitle: "Shedule Practices"}}/>
     <Stack.Screen name='addevent' options={{headerTitle: "Add an Event"}}/>
     <Stack.Screen name='setlistgenerator' options={{headerTitle: "Generate Setlists"}}/>
+    <Stack.Screen name='settingsscreen' options={{headerTitle: "Settings"}}/>
+    <Stack.Screen name='assigntasks' options={{headerTitle: "Assign a Task"}}/>
    </Stack>
   )
 }

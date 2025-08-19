@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, Text, TextInput, Alert, ActivityIndicator, 
   FlatList, TouchableOpacity, StyleSheet, Modal, SafeAreaView,
-  Platform, ScrollView
+  Platform, ScrollView, Image, Dimensions
 } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,7 +14,8 @@ import * as MediaLibrary from 'expo-media-library';
 import ViewShot from 'react-native-view-shot';
 import { format } from 'date-fns';
 
-// Define interfaces for TypeScript
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
 interface Event {
   id: string;
   location: string;
@@ -29,6 +30,7 @@ interface Song {
   duration: string;
   tempo: string;
   genres: string;
+  lyricsImageUrl?: string;
 }
 
 interface Setlist {
@@ -47,6 +49,9 @@ const SetlistGenerator = () => {
   const [bandId, setBandId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [generating, setGenerating] = useState<boolean>(false);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'past' | 'future'>('future');
 
   // Events state
   const [events, setEvents] = useState<Event[]>([]);
@@ -78,8 +83,20 @@ const SetlistGenerator = () => {
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [setlistDetailModalVisible, setSetlistDetailModalVisible] = useState(false);
   
+  // Lyrics viewing state
+  const [lyricsModalVisible, setLyricsModalVisible] = useState(false);
+  const [viewingLyricsUrl, setViewingLyricsUrl] = useState<string>('');
+  const [selectedSongTitle, setSelectedSongTitle] = useState<string>('');
+  const [lyricsImageLoading, setLyricsImageLoading] = useState<boolean>(false);
+  const [lyricsImageError, setLyricsImageError] = useState<boolean>(false);
+  const [lyricsImageDimensions, setLyricsImageDimensions] = useState<{ width: number; height: number; } | null>(null);
+  
   // ViewShot ref for capturing setlist as image
   const viewShotRef = useRef<ViewShot>(null);
+  
+  // Setlist image preview URI and generation state
+  const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [generatingPreview, setGeneratingPreview] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchBandId = async () => {
@@ -109,6 +126,19 @@ const SetlistGenerator = () => {
       fetchSetlists();
     }
   }, [bandId]);
+
+  useEffect(() => {
+    if (setlistDetailModalVisible && selectedSetlist) {
+      // Add a longer delay to ensure the modal is fully rendered
+      const timer = setTimeout(() => {
+        generateSetlistPreview();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    } else {
+      setPreviewImageUri(null);
+    }
+  }, [setlistDetailModalVisible, selectedSetlist]);
 
   const fetchEvents = async () => {
     try {
@@ -167,9 +197,13 @@ const SetlistGenerator = () => {
   const deleteSetlist = async (id: string) => {
     Alert.alert(
       "Delete Setlist",
-      "Are you sure you want to delete this setlist?",
+      "Are you sure you want to permanently delete this setlist? This action cannot be undone.",
       [
-        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Cancel", 
+          style: "cancel",
+          onPress: () => console.log("Delete cancelled")
+        },
         { 
           text: "Delete", 
           style: "destructive",
@@ -178,13 +212,10 @@ const SetlistGenerator = () => {
               if (!bandId) return;
               
               setLoading(true);
-              // Delete from Firestore
               await deleteDoc(doc(db, `bands/${bandId}/setlists`, id));
               
-              // Update state
               setSetlists(prevSetlists => prevSetlists.filter(setlist => setlist.id !== id));
               
-              // Close modal if the deleted setlist was selected
               if (selectedSetlist && selectedSetlist.id === id) {
                 setSetlistDetailModalVisible(false);
                 setSelectedSetlist(null);
@@ -193,7 +224,7 @@ const SetlistGenerator = () => {
               Alert.alert("Success", "Setlist deleted successfully");
             } catch (error) {
               console.error("Error deleting setlist:", error);
-              Alert.alert("Error", "Failed to delete setlist");
+              Alert.alert("Error", "Failed to delete setlist. Please try again.");
             } finally {
               setLoading(false);
             }
@@ -217,7 +248,6 @@ const SetlistGenerator = () => {
     try {
       setGenerating(true);
 
-      // Get the selected event details
       const selectedEventObj = events.find(event => event.id === selectedEvent);
       if (!selectedEventObj) {
         Alert.alert("Error", "Selected event not found");
@@ -225,62 +255,54 @@ const SetlistGenerator = () => {
         return;
       }
 
-      // Group songs by session type
       const firstSessionSongs = songs.filter(song => song.genres === 'First Session');
       const secondSessionSongs = songs.filter(song => song.genres === 'Second Session');
       const dancingSessionSongs = songs.filter(song => song.genres === 'Dancing Session');
 
-      // Check if we have enough songs for each session
       if (parseInt(firstSessionCount) > firstSessionSongs.length) {
         Alert.alert("Error", `Not enough songs for First Session. You only have ${firstSessionSongs.length} songs.`);
         setGenerating(false);
         return;
       }
 
-      if (parseInt(sessionCount) >= 2 && parseInt(secondSessionCount) > secondSessionSongs.length) {
+      if (parseInt(sessionCount || "1") >= 2 && parseInt(secondSessionCount) > secondSessionSongs.length) {
         Alert.alert("Error", `Not enough songs for Second Session. You only have ${secondSessionSongs.length} songs.`);
         setGenerating(false);
         return;
       }
 
-      if (parseInt(sessionCount) >= 3 && parseInt(dancingSessionCount) > dancingSessionSongs.length) {
+      if (parseInt(sessionCount || "1") >= 3 && parseInt(dancingSessionCount) > dancingSessionSongs.length) {
         Alert.alert("Error", `Not enough songs for Dancing Session. You only have ${dancingSessionSongs.length} songs.`);
         setGenerating(false);
         return;
       }
 
-      // Randomly select songs for each session
       const getRandomSongs = (songArray: Song[], count: number) => {
         const shuffled = [...songArray].sort(() => 0.5 - Math.random());
         return shuffled.slice(0, count);
       };
 
-      // Create sessions array
       const sessions = [];
       
-      // First session (always included)
       sessions.push({
         name: 'First Session',
         songs: getRandomSongs(firstSessionSongs, parseInt(firstSessionCount))
       });
       
-      // Add second session if needed
-      if (parseInt(sessionCount) >= 2) {
+      if (parseInt(sessionCount || "1") >= 2) {
         sessions.push({
           name: 'Second Session',
           songs: getRandomSongs(secondSessionSongs, parseInt(secondSessionCount))
         });
       }
       
-      // Add dancing session if needed
-      if (parseInt(sessionCount) >= 3) {
+      if (parseInt(sessionCount || "1") >= 3) {
         sessions.push({
           name: 'Dancing Session',
           songs: getRandomSongs(dancingSessionSongs, parseInt(dancingSessionCount))
         });
       }
 
-      // Create new setlist
       const newSetlist = {
         eventId: selectedEventObj.id,
         eventName: selectedEventObj.location,
@@ -289,15 +311,10 @@ const SetlistGenerator = () => {
         createdAt: new Date()
       };
 
-      // Save to Firebase
       const docRef = await addDoc(collection(db, `bands/${bandId}/setlists`), newSetlist);
       
-      // Refresh setlists
       fetchSetlists();
-      
-      // Close modal
       setFormModalVisible(false);
-      
       Alert.alert("Success", "Setlist generated successfully!");
     } catch (error) {
       console.error("Error generating setlist:", error);
@@ -309,102 +326,281 @@ const SetlistGenerator = () => {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return format(date, 'MMM dd, yyyy - hh:mm a');
+    return format(date, 'MMM dd, yyyy');
   };
 
-  const captureSetlistAsImage = async () => {
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return format(date, 'hh:mm a');
+  };
+
+  const generateSetlistPreview = useCallback(async () => {
+    if (!selectedSetlist) return;
+    
     try {
-      // Early return if viewShotRef.current doesn't exist
-      if (!viewShotRef.current) {
-        Alert.alert('Error', 'Could not capture setlist image');
-        return;
+      setGeneratingPreview(true);
+      console.log('Starting setlist preview generation...');
+      
+      // Multiple attempts with different delays
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`Preview generation attempt ${attempt}`);
+          
+          if (!viewShotRef.current) {
+            console.error(`Attempt ${attempt}: ViewShot ref is null`);
+            await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+            continue;
+          }
+          
+          const viewShot = viewShotRef.current;
+          
+          if (!viewShot.capture || typeof viewShot.capture !== 'function') {
+            console.error(`Attempt ${attempt}: ViewShot capture method not available`);
+            await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+            continue;
+          }
+          
+          console.log(`Attempt ${attempt}: Capturing setlist...`);
+          const uri = await viewShot.capture();
+          console.log(`Attempt ${attempt}: Capture successful, URI:`, uri);
+          
+          setPreviewImageUri(uri);
+          setGeneratingPreview(false);
+          return; // Success, exit the function
+          
+        } catch (error) {
+          console.error(`Attempt ${attempt} failed:`, error);
+          if (attempt === 3) {
+            throw error; // Re-throw on final attempt
+          }
+          await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+        }
       }
       
-      // Request permission
+    } catch (error) {
+      console.error("Error generating setlist preview:", error);
+      setGeneratingPreview(false);
+      // Don't show error alert, just log it
+    }
+  }, [selectedSetlist]);
+
+  const captureAndSaveSetlistAsImage = async () => {
+    try {
+      let imageUri = previewImageUri;
+      
+      // Request permissions first
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Need storage permission to save image');
         return;
       }
       
-      // Store the ref in a constant
-      const viewShot = viewShotRef.current;
+      // If no cached preview, generate one
+      if (!imageUri) {
+        console.log('No cached preview, generating new one...');
+        
+        if (!viewShotRef.current || !viewShotRef.current.capture) {
+          Alert.alert('Error', 'Could not capture setlist image. Please try again.');
+          return;
+        }
+        
+        try {
+          imageUri = await viewShotRef.current.capture();
+          console.log('New capture successful:', imageUri);
+        } catch (error) {
+          console.error('Capture failed:', error);
+          Alert.alert('Error', 'Failed to capture setlist image. Please try again.');
+          return;
+        }
+      }
       
-      // Check if the capture method exists
-      if (typeof viewShot.capture !== 'function') {
-        Alert.alert('Error', 'ViewShot capture method not available');
+      if (!imageUri) {
+        Alert.alert('Error', 'No image to save. Please try again.');
         return;
       }
       
-      // Capture the view
-      const uri = await viewShot.capture();
-      
-      // Save to media library
-      const asset = await MediaLibrary.createAssetAsync(uri);
+      console.log('Saving image to gallery:', imageUri);
+      const asset = await MediaLibrary.createAssetAsync(imageUri);
+      console.log('Image saved successfully:', asset);
       
       Alert.alert('Success', 'Setlist saved to your photo gallery');
     } catch (error) {
-      console.error("Error capturing setlist:", error);
-      Alert.alert("Error", "Failed to capture setlist as image");
+      console.error("Error saving setlist:", error);
+      Alert.alert("Error", "Failed to save setlist as image. Please try again.");
     }
   };
 
-  const renderSetlistItem = ({ item }: { item: Setlist }) => (
-    <TouchableOpacity 
-      style={styles.setlistItem}
-      onPress={() => {
-        setSelectedSetlist(item);
-        setSetlistDetailModalVisible(true);
-      }}
+  const handleSongPress = (song: Song) => {
+    if (song.lyricsImageUrl) {
+      console.log('Opening lyrics for song:', song.title, 'URL:', song.lyricsImageUrl);
+      
+      setLyricsImageLoading(true);
+      setLyricsImageError(false);
+      setViewingLyricsUrl(song.lyricsImageUrl);
+      setSelectedSongTitle(song.title);
+      setLyricsModalVisible(true);
+      setLyricsImageDimensions(null);
+    } else {
+      Alert.alert("No Lyrics", "This song doesn't have lyrics image available.");
+    }
+  };
+
+  const handleLyricsImageLoad = (event: any) => {
+    console.log('Lyrics image loaded successfully');
+    setLyricsImageLoading(false);
+    setLyricsImageError(false);
+
+    const { width, height } = event.nativeEvent.source;
+    setLyricsImageDimensions({ width, height });
+  };
+
+  const handleLyricsImageError = (error: any) => {
+    console.error('Error loading lyrics image:', error);
+    setLyricsImageLoading(false);
+    setLyricsImageError(true);
+  };
+
+  const closeLyricsModal = () => {
+    setLyricsModalVisible(false);
+    setTimeout(() => {
+      setLyricsImageLoading(false);
+      setLyricsImageError(false);
+      setViewingLyricsUrl('');
+      setSelectedSongTitle('');
+      setLyricsImageDimensions(null);
+    }, 300);
+  };
+
+  const retryLyricsImage = () => {
+    setLyricsImageError(false);
+    setLyricsImageLoading(true);
+    const currentUrl = viewingLyricsUrl;
+    setViewingLyricsUrl('');
+    setTimeout(() => {
+      setViewingLyricsUrl(currentUrl);
+    }, 100);
+  };
+
+  const getFilteredSetlists = () => {
+    const now = new Date();
+    return setlists.filter(setlist => {
+      const eventDate = new Date(setlist.eventDate);
+      return activeTab === 'future' ? eventDate >= now : eventDate < now;
+    }).sort((a, b) => {
+      const dateA = new Date(a.eventDate);
+      const dateB = new Date(b.eventDate);
+      return activeTab === 'future' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+    });
+  };
+
+  const filteredSetlists = getFilteredSetlists();
+
+  const renderTabButton = (tab: 'past' | 'future', label: string) => (
+    <TouchableOpacity
+      style={[styles.tabButton, activeTab === tab && styles.activeTabButton]}
+      onPress={() => setActiveTab(tab)}
     >
-      <View style={styles.setlistItemContent}>
-        <Text style={styles.setlistEventName}>{item.eventName}</Text>
-        <Text style={styles.setlistEventDate}>{formatDate(item.eventDate)}</Text>
-        <Text style={styles.setlistSongCount}>
-          {item.sessions.reduce((total, session) => total + session.songs.length, 0)} songs | 
-          {item.sessions.length} {item.sessions.length === 1 ? 'session' : 'sessions'}
-        </Text>
-        
-        {/* Added section to display song list */}
-        <View style={styles.songsPreviewContainer}>
-          {item.sessions.map((session, sessionIndex) => (
-            <View key={`session-${sessionIndex}`} style={styles.sessionPreview}>
-              <Text style={styles.sessionPreviewName}>{session.name}:</Text>
-              <Text style={styles.sessionSongsList}>
-                {session.songs.map(song => song.title).join(', ')}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View>
-      <View style={styles.setlistItemActions}>
-        <Feather name="chevron-right" size={24} color="#888" />
-      </View>
+      <Text style={[styles.tabButtonText, activeTab === tab && styles.activeTabButtonText]}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 
+  const renderSetlistItem = ({ item }: { item: Setlist }) => {
+    const totalSongs = item.sessions.reduce((total, session) => total + session.songs.length, 0);
+    const sessionCount = item.sessions.length;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.setlistCard}
+        onPress={() => {
+          setSelectedSetlist(item);
+          setSetlistDetailModalVisible(true);
+        }}
+        activeOpacity={0.7}
+      >
+        <View style={styles.setlistCardContent}>
+          <View style={styles.setlistHeaderRow}>
+            <View style={styles.setlistMainInfo}>
+              <Text style={styles.eventName} numberOfLines={1}>{item.eventName}</Text>
+              <View style={styles.dateTimeContainer}>
+                <View style={styles.dateTimeRow}>
+                  <Feather name="calendar" size={14} color="#666" />
+                  <Text style={styles.eventDate}>{formatDate(item.eventDate)}</Text>
+                </View>
+                <View style={styles.dateTimeRow}>
+                  <Feather name="clock" size={14} color="#666" />
+                  <Text style={styles.eventTime}>{formatTime(item.eventDate)}</Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity 
+              onPress={(e) => {
+                e.stopPropagation();
+                deleteSetlist(item.id);
+              }}
+              style={styles.deleteIconButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Feather name="trash-2" size={18} color="#FF5252" />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.setlistStats}>
+            <View style={styles.statItem}>
+              <Feather name="music" size={16} color="#5C6BC0" />
+              <Text style={styles.statText}>{totalSongs} songs</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Feather name="layers" size={16} color="#5C6BC0" />
+              <Text style={styles.statText}>{sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}</Text>
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.chevronContainer}>
+          <Feather name="chevron-right" size={20} color="#C1C1C1" />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>Setlists</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Setlists</Text>
+      </View>
       
-      {setlists.length === 0 ? (
+      <View style={styles.tabContainer}>
+        {renderTabButton('future', 'Upcoming')}
+        {renderTabButton('past', 'Past Events')}
+      </View>
+      
+      {filteredSetlists.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Feather name="list" size={60} color="#ccc" />
-          <Text style={styles.emptyText}>No setlists generated yet</Text>
-          <Text style={{ textAlign: 'center', color: '#888' }}>
-            Tap the + button to create your first setlist
+          <View style={styles.emptyIcon}>
+            <Feather name="list" size={48} color="#E0E0E0" />
+          </View>
+          <Text style={styles.emptyTitle}>
+            {activeTab === 'future' ? 'No upcoming setlists' : 'No past setlists'}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            {activeTab === 'future' 
+              ? 'Create your first setlist for upcoming events' 
+              : 'Past setlists will appear here after events'
+            }
           </Text>
         </View>
       ) : (
         <FlatList
-          data={setlists}
+          data={filteredSetlists}
           keyExtractor={(item) => item.id}
           renderItem={renderSetlistItem}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
-      {/* FAB for generating new setlist */}
       <TouchableOpacity 
         style={styles.fab} 
         onPress={() => setFormModalVisible(true)}
@@ -413,101 +609,106 @@ const SetlistGenerator = () => {
         <Feather name="plus" size={24} color="white" />
       </TouchableOpacity>
 
-      {/* Generate Setlist Form Modal */}
+      {/* Generate Setlist Modal */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={formModalVisible}
         onRequestClose={() => setFormModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Generate New Setlist</Text>
               <TouchableOpacity onPress={() => setFormModalVisible(false)}>
-                <Feather name="x" size={24} color="#888" />
+                <Feather name="x" size={24} color="#666" />
               </TouchableOpacity>
             </View>
             
-            {/* Event Selection */}
-            <Text style={styles.inputLabel}>Select Event</Text>
-            <View style={{ width: '100%', zIndex: 3000 }}>
-              <DropDownPicker
-                open={eventsOpen}
-                value={selectedEvent}
-                items={events.map(event => ({
-                  label: `${event.location} (${formatDate(event.dateTime)})`,
-                  value: event.id
-                }))}
-                setOpen={setEventsOpen}
-                setValue={setSelectedEvent}
-                setItems={() => {}}
-                placeholder="Select an event"
-                style={styles.dropdownPicker}
-                dropDownContainerStyle={styles.dropdownContainer}
-                zIndex={3000}
-                zIndexInverse={1000}
-              />
-            </View>
-            
-            {/* Session Count Selection */}
-            <Text style={styles.inputLabel}>Number of Sessions</Text>
-            <View style={{ width: '100%', zIndex: 2000, marginTop: 10 }}>
-              <DropDownPicker
-                open={sessionsOpen}
-                value={sessionCount}
-                items={sessionItems}
-                setOpen={setSessionsOpen}
-                setValue={setSessionCount}
-                setItems={() => {}}
-                placeholder="Select number of sessions"
-                style={styles.dropdownPicker}
-                dropDownContainerStyle={styles.dropdownContainer}
-                zIndex={2000}
-                zIndexInverse={2000}
-              />
-            </View>
-            
-            {/* Songs per session inputs */}
-            <View style={{ marginTop: eventsOpen || sessionsOpen ? 110 : 20 }}>
-              <Text style={styles.inputLabel}>Songs for First Session</Text>
-              <TextInput
-                style={styles.input}
-                value={firstSessionCount}
-                onChangeText={setFirstSessionCount}
-                keyboardType="numeric"
-                placeholder="Number of songs"
-                placeholderTextColor="#888"
-              />
-              
-              {parseInt(sessionCount || "1") >= 2 && (
-                <>
-                  <Text style={styles.inputLabel}>Songs for Second Session</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={secondSessionCount}
-                    onChangeText={setSecondSessionCount}
-                    keyboardType="numeric"
-                    placeholder="Number of songs"
-                    placeholderTextColor="#888"
+            <ScrollView style={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.formSection}>
+                <Text style={styles.inputLabel}>Select Event</Text>
+                <View style={{ zIndex: 3000 }}>
+                  <DropDownPicker
+                    open={eventsOpen}
+                    value={selectedEvent}
+                    items={events.map(event => ({
+                      label: `${event.location} (${formatDate(event.dateTime)})`,
+                      value: event.id
+                    }))}
+                    setOpen={setEventsOpen}
+                    setValue={setSelectedEvent}
+                    setItems={() => {}}
+                    placeholder="Select an event"
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    textStyle={styles.dropdownText}
+                    zIndex={3000}
+                    zIndexInverse={1000}
                   />
-                </>
-              )}
+                </View>
+              </View>
               
-              {parseInt(sessionCount || "1") >= 3 && (
-                <>
-                  <Text style={styles.inputLabel}>Songs for Dancing Session</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={dancingSessionCount}
-                    onChangeText={setDancingSessionCount}
-                    keyboardType="numeric"
-                    placeholder="Number of songs"
-                    placeholderTextColor="#888"
+              <View style={styles.formSection}>
+                <Text style={styles.inputLabel}>Number of Sessions</Text>
+                <View style={{ zIndex: 2000 }}>
+                  <DropDownPicker
+                    open={sessionsOpen}
+                    value={sessionCount}
+                    items={sessionItems}
+                    setOpen={setSessionsOpen}
+                    setValue={setSessionCount}
+                    setItems={() => {}}
+                    placeholder="Select number of sessions"
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    textStyle={styles.dropdownText}
+                    zIndex={2000}
+                    zIndexInverse={2000}
                   />
-                </>
-              )}
-            </View>
+                </View>
+              </View>
+              
+              <View style={[styles.formSection, { marginTop: eventsOpen || sessionsOpen ? 120 : 0 }]}>
+                <Text style={styles.inputLabel}>Songs for First Session</Text>
+                <TextInput
+                  style={styles.input}
+                  value={firstSessionCount}
+                  onChangeText={setFirstSessionCount}
+                  keyboardType="numeric"
+                  placeholder="Number of songs"
+                  placeholderTextColor="#999"
+                />
+                
+                {parseInt(sessionCount || "1") >= 2 && (
+                  <>
+                    <Text style={styles.inputLabel}>Songs for Second Session</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={secondSessionCount}
+                      onChangeText={setSecondSessionCount}
+                      keyboardType="numeric"
+                      placeholder="Number of songs"
+                      placeholderTextColor="#999"
+                    />
+                  </>
+                )}
+                
+                {parseInt(sessionCount || "1") >= 3 && (
+                  <>
+                    <Text style={styles.inputLabel}>Songs for Dancing Session</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={dancingSessionCount}
+                      onChangeText={setDancingSessionCount}
+                      keyboardType="numeric"
+                      placeholder="Number of songs"
+                      placeholderTextColor="#999"
+                    />
+                  </>
+                )}
+              </View>
+            </ScrollView>
             
             <TouchableOpacity 
               style={styles.generateButton} 
@@ -531,12 +732,11 @@ const SetlistGenerator = () => {
         visible={setlistDetailModalVisible}
         onRequestClose={() => setSetlistDetailModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={styles.modalOverlay}>
           <View style={styles.setlistDetailContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Setlist Detail</Text>
               <View style={styles.modalActions}>
-                {/* Delete button */}
                 {selectedSetlist && (
                   <TouchableOpacity 
                     onPress={() => {
@@ -545,29 +745,40 @@ const SetlistGenerator = () => {
                         if (selectedSetlist) {
                           deleteSetlist(selectedSetlist.id);
                         }
-                      }, 300); // Small delay to allow modal to close first
+                      }, 300)
                     }}
-                    style={styles.deleteButton}
+                    style={styles.headerActionButton}
                   >
                     <Feather name="trash-2" size={20} color="#FF5252" />
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity 
                   onPress={() => setSetlistDetailModalVisible(false)}
-                  style={{marginLeft: 15}}
+                  style={styles.headerActionButton}
                 >
-                  <Feather name="x" size={24} color="#888" />
+                  <Feather name="x" size={24} color="#666" />
                 </TouchableOpacity>
               </View>
             </View>
             
-            <ViewShot ref={viewShotRef} options={{ format: "jpg", quality: 0.9 }} style={styles.setlistPrintView}>
-              <ScrollView>
+            {/* FIXED: ViewShot container - now visible and properly sized */}
+            <View style={styles.viewShotContainer}>
+              <ViewShot 
+                ref={viewShotRef} 
+                options={{ 
+                  format: "jpg", 
+                  quality: 0.9,
+                  result: 'tmpfile'
+                }} 
+                style={styles.setlistPrintView}
+              >
                 {selectedSetlist && (
                   <View style={styles.setlistDetailView}>
                     <View style={styles.setlistHeader}>
                       <Text style={styles.setlistTitle}>{selectedSetlist.eventName}</Text>
-                      <Text style={styles.setlistDate}>{formatDate(selectedSetlist.eventDate)}</Text>
+                      <Text style={styles.setlistDate}>
+                        {formatDate(selectedSetlist.eventDate)} at {formatTime(selectedSetlist.eventDate)}
+                      </Text>
                     </View>
                     
                     {selectedSetlist.sessions.map((session, index) => (
@@ -587,19 +798,176 @@ const SetlistGenerator = () => {
                     ))}
                   </View>
                 )}
-              </ScrollView>
-            </ViewShot>
+              </ViewShot>
+            </View>
             
-            <TouchableOpacity 
-              style={styles.downloadButton} 
-              onPress={captureSetlistAsImage}
-            >
-              <Feather name="download" size={20} color="#fff" />
-              <Text style={styles.downloadButtonText}>Save as Image</Text>
-            </TouchableOpacity>
+            <View style={styles.imagePreviewContainer}>
+              {generatingPreview ? (
+                <View style={styles.loadingPreview}>
+                  <ActivityIndicator size="large" color="#5C6BC0" />
+                  <Text style={styles.loadingText}>Generating preview...</Text>
+                </View>
+              ) : previewImageUri ? (
+                <Image 
+                  source={{ uri: previewImageUri }} 
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={styles.loadingPreview}>
+                  <Feather name="image" size={48} color="#E0E0E0" />
+                  <Text style={styles.loadingText}>Preview not available</Text>
+                  <TouchableOpacity 
+                    onPress={generateSetlistPreview}
+                    style={styles.retryPreviewButton}
+                  >
+                    <Text style={styles.retryPreviewText}>Generate Preview</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+            
+            <ScrollView style={styles.setlistContentScroll} showsVerticalScrollIndicator={false}>
+              {selectedSetlist && (
+                <View style={styles.setlistDetailViewScroll}>
+                  <View style={styles.eventInfo}>
+                    <Text style={styles.eventTitle}>{selectedSetlist.eventName}</Text>
+                    <View style={styles.eventDetailsRow}>
+                      <View style={styles.eventDetail}>
+                        <Feather name="calendar" size={16} color="#666" />
+                        <Text style={styles.eventDetailText}>{formatDate(selectedSetlist.eventDate)}</Text>
+                      </View>
+                      <View style={styles.eventDetail}>
+                        <Feather name="clock" size={16} color="#666" />
+                        <Text style={styles.eventDetailText}>{formatTime(selectedSetlist.eventDate)}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  
+                  {selectedSetlist.sessions.map((session, sessionIndex) => (
+                    <View key={sessionIndex} style={styles.sessionSection}>
+                      <Text style={styles.sessionTitle}>{session.name}</Text>
+                      <View style={styles.songsContainer}>
+                        {session.songs.map((song, songIndex) => (
+                          <TouchableOpacity 
+                            key={songIndex} 
+                            style={styles.songItem}
+                            onPress={() => handleSongPress(song)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.songItemContent}>
+                              <Text style={styles.songItemNumber}>{songIndex + 1}</Text>
+                              <View style={styles.songItemDetails}>
+                                <Text style={styles.songItemTitle}>{song.title}</Text>
+                                <Text style={styles.songItemArtist}>{song.artist}</Text>
+                                <View style={styles.songMetaData}>
+                                  <Text style={styles.songDurationText}>{song.duration}</Text>
+                                  <Text style={styles.songTempo}>• {song.tempo}</Text>
+                                </View>
+                              </View>
+                              {song.lyricsImageUrl && (
+                                <Feather name="file-text" size={16} color="#5C6BC0" />
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.saveImageButton}
+                onPress={captureAndSaveSetlistAsImage}
+                activeOpacity={0.8}
+              >
+                <Feather name="download" size={20} color="white" />
+                <Text style={styles.saveImageButtonText}>Save as Image</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
+
+      {/* Lyrics Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={lyricsModalVisible}
+        onRequestClose={closeLyricsModal}
+      >
+        <View style={styles.lyricsModalOverlay}>
+          <View style={styles.lyricsModalContent}>
+            <View style={styles.lyricsModalHeader}>
+              <Text style={styles.lyricsModalTitle} numberOfLines={1}>
+                {selectedSongTitle}
+              </Text>
+              <TouchableOpacity 
+                onPress={closeLyricsModal}
+                style={styles.lyricsCloseButton}
+              >
+                <Feather name="x" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.lyricsImageContainer}>
+              {lyricsImageLoading && (
+                <View style={styles.lyricsLoadingContainer}>
+                  <ActivityIndicator size="large" color="#5C6BC0" />
+                  <Text style={styles.lyricsLoadingText}>Loading lyrics...</Text>
+                </View>
+              )}
+              
+              {lyricsImageError && !lyricsImageLoading && (
+                <View style={styles.lyricsErrorContainer}>
+                  <Feather name="alert-circle" size={48} color="#FF5252" />
+                  <Text style={styles.lyricsErrorText}>Failed to load lyrics</Text>
+                  <TouchableOpacity 
+                    onPress={retryLyricsImage}
+                    style={styles.retryButton}
+                  >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              {viewingLyricsUrl && (
+                <ScrollView 
+                  style={styles.lyricsScrollView}
+                  contentContainerStyle={styles.lyricsScrollContent}
+                  showsVerticalScrollIndicator={false}
+                  maximumZoomScale={3}
+                  minimumZoomScale={1}
+                >
+                  <Image
+                    source={{ uri: viewingLyricsUrl }}
+                    style={[
+                      styles.lyricsImage,
+                      lyricsImageDimensions ? {
+                        aspectRatio: lyricsImageDimensions.width / lyricsImageDimensions.height
+                      } : {
+                        height: screenHeight * 0.7
+                      }
+                    ]}
+                    resizeMode="contain"
+                    onLoad={handleLyricsImageLoad}
+                    onError={handleLyricsImageError}
+                  />
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#5C6BC0" />
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -607,268 +975,556 @@ const SetlistGenerator = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#F8F9FA',
   },
   header: {
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+    color: '#333',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  activeTabButton: {
+    backgroundColor: '#5C6BC0',
+  },
+  tabButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  activeTabButtonText: {
+    color: 'white',
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    justifyContent: 'center',
+    paddingHorizontal: 40,
   },
-  emptyText: {
+  emptyIcon: {
+    marginBottom: 16,
+  },
+  emptyTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#555',
-    marginTop: 16,
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  listContainer: {
+    padding: 20,
+    paddingBottom: 100,
+  },
+  setlistCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginBottom: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  setlistCardContent: {
+    flex: 1,
+  },
+  setlistHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  setlistMainInfo: {
+    flex: 1,
+  },
+  eventName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  dateTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  eventDate: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  eventTime: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  deleteIconButton: {
+    padding: 4,
+  },
+  setlistStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  statText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  chevronContainer: {
+    marginLeft: 8,
   },
   fab: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: '#5C6BC0',
+    bottom: 30,
+    right: 30,
     width: 56,
     height: 56,
     borderRadius: 28,
-    justifyContent: 'center',
+    backgroundColor: '#5C6BC0',
     alignItems: 'center',
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.3,
-    shadowRadius: 4.65,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  // Modal styles
-  modalContainer: {
+  modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    width: '90%',
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    maxHeight: '80%',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    maxHeight: screenHeight * 0.9,
   },
   setlistDetailContent: {
-    width: '95%',
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    maxHeight: '90%',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    maxHeight: screenHeight * 0.95,
+    minHeight: screenHeight * 0.8,
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
   },
   modalActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  headerActionButton: {
+    padding: 4,
+    marginLeft: 12,
   },
-  deleteButton: {
-    padding: 5,
+  modalScrollContent: {
+    maxHeight: screenHeight * 0.4,
+  },
+  formSection: {
+    marginBottom: 20,
   },
   inputLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 8,
-    color: '#555',
   },
-  input: {
-    width: '100%',
-    height: 50,
-    borderColor: '#ddd',
+  dropdown: {
+    borderColor: '#DDD',
     borderWidth: 1,
-    marginBottom: 15,
-    paddingHorizontal: 12,
     borderRadius: 8,
-  },
-  dropdownPicker: {
-    borderColor: '#ddd',
-    height: 50,
-    marginBottom: 15,
+    backgroundColor: 'white',
   },
   dropdownContainer: {
-    borderColor: '#ddd',
+    borderColor: '#DDD',
+    borderWidth: 1,
+    borderRadius: 8,
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#DDD',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    backgroundColor: 'white',
+    color: '#333',
+    marginBottom: 16,
   },
   generateButton: {
-    backgroundColor: "#5C6BC0",
-    width: '100%',
-    padding: 14,
+    backgroundColor: '#5C6BC0',
+    paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 20,
   },
   generateButtonText: {
     color: 'white',
-    fontWeight: 'bold',
     fontSize: 16,
-  },
-  // Setlist item styles
-  setlistItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start', // Changed from center to flex-start
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-  },
-  setlistItemContent: {
-    flex: 1,
-  },
-  setlistItemActions: {
-    paddingTop: 5,
-  },
-  setlistEventName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  setlistEventDate: {
-    fontSize: 14,
-    color: '#555',
-    marginTop: 4,
-  },
-  setlistSongCount: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 4,
-    marginBottom: 10,
-  },
-  // Songs preview in list item
-  songsPreviewContainer: {
-    marginTop: 5,
-  },
-  sessionPreview: {
-    marginBottom: 3,
-  },
-  sessionPreviewName: {
-    fontSize: 12,
     fontWeight: '600',
-    color: '#555',
   },
-  sessionSongsList: {
-    fontSize: 12,
-    color: '#777',
-    fontStyle: 'italic',
+  viewShotContainer: {
+    position: 'absolute',
+    left: -9999,
+    top: -9999,
+    width: 800,
+    backgroundColor: 'white',
   },
-  // Setlist detail styles
   setlistPrintView: {
     backgroundColor: 'white',
-    flex: 1,
-    width: '100%',
+    padding: 20,
   },
   setlistDetailView: {
-    padding: 15,
-    minHeight: '100%',
+    backgroundColor: 'white',
   },
   setlistHeader: {
     alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 15,
+    marginBottom: 24,
+    paddingBottom: 16,
     borderBottomWidth: 2,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#5C6BC0',
   },
   setlistTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#333',
     textAlign: 'center',
+    marginBottom: 8,
   },
   setlistDate: {
     fontSize: 16,
-    color: '#555',
-    marginTop: 8,
+    color: '#666',
+    textAlign: 'center',
   },
   sessionContainer: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sessionName: {
     fontSize: 18,
     fontWeight: 'bold',
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-    borderRadius: 6,
+    color: '#5C6BC0',
     marginBottom: 12,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
   songRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#F0F0F0',
   },
   songNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
     width: 30,
-    textAlign: 'center',
   },
   songDetails: {
     flex: 1,
-    paddingHorizontal: 10,
+    marginLeft: 12,
   },
   songTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#333',
   },
   songArtist: {
     fontSize: 14,
     color: '#666',
+    marginTop: 2,
   },
   songDuration: {
     fontSize: 14,
-    color: '#888',
-    width: 50,
-    textAlign: 'right',
+    color: '#666',
+    fontWeight: '500',
   },
-  downloadButton: {
-    flexDirection: 'row',
-    backgroundColor: '#5C6BC0',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+  imagePreviewContainer: {
+    height: 200,
+    backgroundColor: '#F5F5F5',
     borderRadius: 8,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  loadingPreview: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
   },
-  downloadButtonText: {
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
+  previewImage: {
+    flex: 1,
+    width: '100%',
+  },
+  retryPreviewButton: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#5C6BC0',
+    borderRadius: 6,
+  },
+  retryPreviewText: {
     color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  setlistContentScroll: {
+    flex: 1,
+  },
+  setlistDetailViewScroll: {
+    paddingBottom: 20,
+  },
+  eventInfo: {
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  eventTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  eventDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eventDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 12,
+  },
+  eventDetailText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  sessionSection: {
+    marginBottom: 24,
+  },
+  sessionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#5C6BC0',
+    marginBottom: 12,
+  },
+  songsContainer: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  songItem: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  songItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  songItemNumber: {
     fontSize: 16,
+    fontWeight: 'bold',
+    color: '#5C6BC0',
+    width: 30,
+  },
+  songItemDetails: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  songItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  songItemArtist: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  songMetaData: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  songDurationText: {
+    fontSize: 12,
+    color: '#999',
+  },
+  songTempo: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 4,
+  },
+  saveImageButton: {
+    flex: 1,
+    backgroundColor: '#5C6BC0',
+    paddingVertical: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveImageButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
     marginLeft: 8,
+  },
+  lyricsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  },
+  lyricsModalContent: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  },
+  lyricsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 16,
+  },
+  lyricsModalTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+    marginRight: 16,
+  },
+  lyricsCloseButton: {
+    padding: 4,
+  },
+  lyricsImageContainer: {
+    flex: 1,
+  },
+  lyricsLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lyricsLoadingText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 16,
+  },
+  lyricsErrorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  lyricsErrorText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: '#5C6BC0',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  lyricsScrollView: {
+    flex: 1,
+  },
+  lyricsScrollContent: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  lyricsImage: {
+    width: screenWidth - 40,
+    minHeight: 200,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
